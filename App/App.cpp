@@ -13,9 +13,15 @@
 
 #include "spi.h"
 
+#include "nRF905.h"
+#include "nRF905_config.h"
+#include "nRF905_defs.h"
+
+#define RXADDR 0xFE1337AD
+#define TXADDR 0xFE1337AC // Address of device to send to
+
 
 TIM_HandleTypeDef htim1;
-SPI_HandleTypeDef hspi3;
 
 
 Stepper M1(DIR1_Pin, STEP1_Pin, STEP1_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-130/0.01125, (int32_t)130/0.01125);
@@ -51,7 +57,7 @@ void App_Start()
 
 	HAL_TIM_Base_Start_IT(&htim1);
 
-    HAL_Delay(1000);
+    //HAL_Delay(1000);
 
     HAL_SPI_Init(&hspi2);
 
@@ -64,6 +70,34 @@ void App_Start()
     M2.toggleEnable();
     M3.toggleEnable();
 
+    HAL_Delay(200);
+
+	nRF905_init();
+
+	// Set address of this device
+	nRF905_setListenAddress(RXADDR);
+
+	// Put into receive mode
+	nRF905_RX();
+
+	HAL_Delay(1);
+
+	System::print("Button %u\n", RXADDR);
+
+	uint8_t regs[NRF905_REGISTER_COUNT];
+	nRF905_getConfigRegisters(regs);
+
+	uint16_t channel = ((uint16_t)(regs[1] & 0x01)<<8) | regs[0];
+	uint32_t freq = (422400UL + (channel * 100UL)) * (1 + ((regs[1] & ~NRF905_MASK_BAND) >> 1));
+
+	System::print("Channel: %u", channel);
+	System::print("Freq: %u", freq);
+	System::print("KHz");
+	System::print("\nAuto retransmit: %u\n", !!(regs[1] & ~NRF905_MASK_AUTO_RETRAN));
+	System::print("Low power RX: %u\n", !!(regs[1] & ~NRF905_MASK_LOW_RX));
+
+	System::print("");
+
 
     HAL_Delay(200);
 
@@ -73,9 +107,15 @@ void App_Start()
 
     while(1){
 
-    	if(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin))
-    	{
-    		recieveSPI();
+    	if(dataReady()){
+    		nRF905_read(rxdata, 10);
+
+			System::print("Data: ");
+			for(int i= 0; i<10; i++)
+			{
+				System::print(" %d ", rxdata[i]);
+			}
+			System::print("\n");
     	}
 
     	M1.update();
@@ -157,57 +197,57 @@ void workdata()
 }
 
 
-void recieveSPI()
-{
-
-//	while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin))
-//	{
-
-	for(int i= 0; i<10; i++){
-		rxdata[i] = 0;
-		txdata[i] = 0;
-	}
-
-		bool dataOK = 0;
-		uint8_t checksum = 0;
-
-		HAL_SPI_TransmitReceive(&hspi2, txdata, rxdata, 10, 5);
-
-		for(uint8_t i=0; i<9; i++){
-			checksum += rxdata[i];
-		}
-		HAL_Delay(1);
-
-		if(checksum == rxdata[9]){
-			dataOK = 1;
-			//txdata[0] = 0b10101010;
-
-			//HAL_SPI_Transmit(&hspi2, txdata, 1, 2);
-			System::print("Data: ");
-			for(int i= 0; i<10; i++)
-			{
-				System::print(" %d ", rxdata[i]);
-			}
-			System::print("\n");
-
-
-			//workI2Cdata();
-		}
-//		else{
-//			txdata[0] = 20;
-//			HAL_SPI_Transmit(&hspi2, txdata, 1, 10);
-//			System::print("data currupted\n");
-//		}
-
-
-
-		while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin)) HAL_Delay(1);
-
-		if(dataOK){
-			workdata();
-		}
+//void recieveSPI()
+//{
+//
+////	while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin))
+////	{
+//
+//	for(int i= 0; i<10; i++){
+//		rxdata[i] = 0;
+//		txdata[i] = 0;
 //	}
-}
+//
+//		bool dataOK = 0;
+//		uint8_t checksum = 0;
+//
+//		HAL_SPI_TransmitReceive(&hspi2, txdata, rxdata, 10, 5);
+//
+//		for(uint8_t i=0; i<9; i++){
+//			checksum += rxdata[i];
+//		}
+//		HAL_Delay(1);
+//
+//		if(checksum == rxdata[9]){
+//			dataOK = 1;
+//			//txdata[0] = 0b10101010;
+//
+//			//HAL_SPI_Transmit(&hspi2, txdata, 1, 2);
+//			System::print("Data: ");
+//			for(int i= 0; i<10; i++)
+//			{
+//				System::print(" %d ", rxdata[i]);
+//			}
+//			System::print("\n");
+//
+//
+//			//workI2Cdata();
+//		}
+////		else{
+////			txdata[0] = 20;
+////			HAL_SPI_Transmit(&hspi2, txdata, 1, 10);
+////			System::print("data currupted\n");
+////		}
+//
+//
+//
+//		while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin)) HAL_Delay(1);
+//
+//		if(dataOK){
+//			workdata();
+//		}
+////	}
+//}
 
 
 //uint8_t checkdata( uint8_t *pData, uint8_t len)

@@ -55,8 +55,6 @@ void Stepper::toggleEnable()
 
 void Stepper::moveLinear()
 {
-	//HAL_GPIO_TogglePin(IntOUT_GPIO_Port, IntOUT_Pin);
-
 	if(running){
 
 		if(time2 == 1000){
@@ -78,18 +76,13 @@ void Stepper::moveLinear()
 				setdir2(2);
 				position--;
 			}
-//			HAL_GPIO_WritePin(GPIOx, step, GPIO_PIN_SET);
-//			HAL_GPIO_WritePin(GPIOx, step, GPIO_PIN_SET);
-//			HAL_GPIO_WritePin(GPIOx, step, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(GPIOx, step, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(GPIOx, step, GPIO_PIN_RESET);
 			time3 = 0;
 			steps++;
 		}
 
-		//time++;
 		time2++;
-
 
 		int16_t buffer = (int)lastcalculated - actualpospoint;
 		if(buffer < 0) buffer +=buffersize;
@@ -97,9 +90,7 @@ void Stepper::moveLinear()
 		if(buffer < 3){
 			running = 0;
 		}
-
 	}
-	//HAL_GPIO_TogglePin(IntOUT_GPIO_Port, IntOUT_Pin);
 }
 
 
@@ -195,13 +186,11 @@ void Stepper::setvelocity(double ve)
 			b4[spline] = c4;
 			b5[spline] = c5;
 
-			stopindicator[spline] = 0;
-
 			/* start && end time*/
 			t_start[spline] = timestamp[lastcalculated];
 			t_end[spline] = t_start[spline] + te;
 
-			if(ve == 0)stopindicator[spline] = 0;
+//			if(ve == 0)stopindicator[spline] = 0;
 
 			/*Constant Vel function*/
 			if(ve != 0){
@@ -234,9 +223,6 @@ void Stepper::setvelocity(double ve)
 				b5[spline_next] = 0;
 
 				spline_enable[spline_next] = 1;
-
-				stopindicator[spline_next] = 0;
-				tostop = 0;
 			}
 
 			spline_enable[spline] = 1;
@@ -263,8 +249,6 @@ void Stepper::setposition(double se, double vmax)
 		newset = 1;
 
 		uint8_t spline = (actual_spline+1)%splines;
-
-
 
 		double s0;
 		double v0;
@@ -324,8 +308,6 @@ void Stepper::setposition(double se, double vmax)
 		b4[spline] = c4;
 		b5[spline] = c5;
 
-		stopindicator[spline] = 1;
-
 		spline_enable[spline] = 1;
 
 		System::print("Grad 5 Spline Variables\n");
@@ -355,9 +337,6 @@ void Stepper::calculatepos(uint32_t time_p)
 	posvel[posno] = b1[actual_spline] + 2*b2[actual_spline]*t1 + 3*b3[actual_spline]*t2
 			+4*b4[actual_spline]*t3 + 5*b5[actual_spline]*t4;
 	posaccel[posno] = 2*b2[actual_spline] + 6*b3[actual_spline]*t1 +12*b4[actual_spline]*t2 + 20*b5[actual_spline]*t3;
-
-//	if(stopindicator[actual_spline] && (t_end[actual_spline] - time_p)< 2000) stopsign[posno] = 1;
-//	else stopsign[posno] = 0;
 
 
 	int32_t buffer = pospoint[posno] - pospoint[(posno+buffersize-1)%buffersize];

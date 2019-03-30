@@ -68,7 +68,6 @@ public:
 	bool tostop = 0;
 
 	/*Spline Variables*/
-	bool stopindicator[splines] = { 0 , 0 , 0};
 	uint8_t actual_spline = 0;
 	bool spline_enable[splines] = { 0, 0, 0};
 	int32_t s_end[splines] = {0};
