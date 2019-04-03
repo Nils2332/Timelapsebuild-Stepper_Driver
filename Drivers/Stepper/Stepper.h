@@ -11,7 +11,7 @@
 #include "gpio.h"
 
 const uint8_t buffersize = 10;
-const uint8_t splines = 4;
+const uint8_t splines = 5;
 
 class Stepper{
 public:
@@ -49,8 +49,13 @@ public:
 	GPIO_TypeDef* GPIOx;
 	GPIO_TypeDef* GPIOy;
 
+	double lastvel = 0;
+	double lastpos = 0;
+
 
 	bool moving = 0;
+
+	int8_t actualbuffer = 0;
 
 	int16_t steps = 0;
 	int16_t runinterval[buffersize] = {0};
@@ -100,6 +105,8 @@ public:
 	void setvelocity(double ve);
 
 	void setposition(double se, double vmax);
+	void setpositiont(double se, uint32_t time);
+	void setposition(double se, double ve, uint32_t time);
 
 	void calculatepos(uint32_t time);
 

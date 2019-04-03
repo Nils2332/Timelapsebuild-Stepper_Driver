@@ -26,7 +26,7 @@ TIM_HandleTypeDef htim1;
 
 Stepper M1(DIR1_Pin, STEP1_Pin, STEP1_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-130/0.01125, (int32_t)130/0.01125);
 Stepper M2(DIR2_Pin, STEP2_Pin, STEP2_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-93/0.01125, (int32_t)93/0.01125);
-Stepper M3(DIR3_Pin, STEP3_Pin, STEP3_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)0, 50000);
+Stepper M3(DIR3_Pin, STEP3_Pin, STEP3_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 50, 0.4, 0.0001, 0, (int32_t)0, 50000);
 
 
 uint8_t worked = 0;
@@ -40,8 +40,6 @@ uint8_t txdata[10];
 uint8_t gotdata = 0;
 
 uint16_t I2C_counter = 0;
-
-//Stepper Motor[3] = {M1, M2, M3};
 
 void Timer_IT1()
 {
@@ -107,15 +105,12 @@ void App_Start()
 
     while(1){
 
-    	if(dataReady()){
-    		nRF905_read(rxdata, 10);
-
-			System::print("Data: ");
-			for(int i= 0; i<10; i++)
-			{
-				System::print(" %d ", rxdata[i]);
-			}
-			System::print("\n");
+    	if(dataReady() && (!M1.running || M1.actualbuffer>4) && (!M2.running || M2.actualbuffer>4) &&
+    			(!M3.running || M3.actualbuffer>4)){
+    		System::print("data Incoming\n");
+    		if(getandcheckdata()){
+    			workdata();
+    		}
     	}
 
     	M1.update();
@@ -191,86 +186,75 @@ void workdata()
 
 	/*Retrun actual Position*/
 	if(mode == 10){
+//		System::print("Retrun Position\n");
+		for(uint8_t i=0; i<10; i++){
+			txdata[i] = 0;
+		}
 
+		if(M1.enabled) txdata[6] = 1;
+		else txdata[6] = 2;
+
+		txdata[0] = 10;
+		if(motor == 0){
+			txdata[1] = 0;
+			txdata[2] = M1.position >> 24;
+			txdata[3] = M1.position >> 16;
+			txdata[4] = M1.position >> 8;
+			txdata[5] = M1.position;
+		}
+		if(motor == 1){
+			txdata[1] = 1;
+			txdata[2] = M2.position >> 24;
+			txdata[3] = M2.position >> 16;
+			txdata[4] = M2.position >> 8;
+			txdata[5] = M2.position;
+		}
+		if(motor == 2){
+			txdata[1] = 2;
+			txdata[2] = M3.position >> 24;
+			txdata[3] = M3.position >> 16;
+			txdata[4] = M3.position >> 8;
+			txdata[5] = M3.position;
+		}
+
+
+		for(uint8_t i=0; i<9; i++){
+			txdata[9] += txdata[i];
+		}
+
+		nRF905_TX(TXADDR, txdata, 10, NRF905_NEXTMODE_RX);
+	}
+
+	if(mode != 10){
+		for(uint8_t i=0; i<10; i++){
+			txdata[i] = 0;
+		}
+		txdata[0] = 200;
+		txdata[8] = 0xAA;
+		txdata[9] = txdata[0] + txdata[8];
+
+		nRF905_TX(TXADDR, txdata, 10, NRF905_NEXTMODE_RX);
 	}
 
 }
 
 
-//void recieveSPI()
-//{
-//
-////	while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin))
-////	{
-//
-//	for(int i= 0; i<10; i++){
-//		rxdata[i] = 0;
-//		txdata[i] = 0;
-//	}
-//
-//		bool dataOK = 0;
-//		uint8_t checksum = 0;
-//
-//		HAL_SPI_TransmitReceive(&hspi2, txdata, rxdata, 10, 5);
-//
-//		for(uint8_t i=0; i<9; i++){
-//			checksum += rxdata[i];
-//		}
-//		HAL_Delay(1);
-//
-//		if(checksum == rxdata[9]){
-//			dataOK = 1;
-//			//txdata[0] = 0b10101010;
-//
-//			//HAL_SPI_Transmit(&hspi2, txdata, 1, 2);
-//			System::print("Data: ");
-//			for(int i= 0; i<10; i++)
-//			{
-//				System::print(" %d ", rxdata[i]);
-//			}
-//			System::print("\n");
-//
-//
-//			//workI2Cdata();
-//		}
-////		else{
-////			txdata[0] = 20;
-////			HAL_SPI_Transmit(&hspi2, txdata, 1, 10);
-////			System::print("data currupted\n");
-////		}
-//
-//
-//
-//		while(!HAL_GPIO_ReadPin(SPI_CS1_GPIO_Port, SPI_CS1_Pin)) HAL_Delay(1);
-//
-//		if(dataOK){
-//			workdata();
-//		}
-////	}
-//}
+uint8_t getandcheckdata()
+{
+	nRF905_read(rxdata, 10);
 
+	uint8_t dataOK = 0;
 
-//uint8_t checkdata( uint8_t *pData, uint8_t len)
-//{
-//	uint8_t checksum = 0;
-//
-//	for(uint8_t i=0; i<len-2; i++)
-//	{
-//		checksum += pData[i];
-//	}
-//
-//	if(checksum == pData[len-1]){
-//		txdata[0] = 0xAA;
-//
-//		HAL_I2C_Slave_Transmit(&hi2c1, txdata, 1, 5);
-//
-//		return 1;
-//	}
-//	else{
-//		txdata[0] = 0;
-//		HAL_I2C_Slave_Transmit(&hi2c1, txdata, 1, 5);
-//		HAL_I2C_DeInit(&hi2c1);
-//		HAL_I2C_Init(&hi2c1);
-//		return 0;
-//	}
-//}
+	uint8_t checksum = 0;
+	for(uint8_t i=0; i<9; i++){
+		checksum += rxdata[i];
+	}
+
+//	System::print("Gotdata\n");
+	if(checksum == rxdata[9]){
+		dataOK = 1;
+//		System::print("DataOK\n");
+	}
+
+	return dataOK;
+}

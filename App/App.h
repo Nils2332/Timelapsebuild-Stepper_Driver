@@ -17,7 +17,7 @@ void App_Start();
 
 void workdata();
 
-void recieveSPI();
+uint8_t getandcheckdata();
 
 #ifdef __cplusplus
 }
