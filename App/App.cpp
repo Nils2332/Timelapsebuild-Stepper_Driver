@@ -107,7 +107,7 @@ void App_Start()
 
     	if(dataReady() && (!M1.running || M1.actualbuffer>4) && (!M2.running || M2.actualbuffer>4) &&
     			(!M3.running || M3.actualbuffer>4)){
-    		System::print("data Incoming\n");
+    		//System::print("data Incoming\n");
     		if(getandcheckdata()){
     			workdata();
     		}

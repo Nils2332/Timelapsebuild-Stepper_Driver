@@ -18,7 +18,7 @@
 
 uint16_t counter = 0;
 
-double sgn(double in)
+double sign(double in)
 {
 	if(in>=0)
 		return 1;
@@ -127,6 +127,7 @@ void Stepper::setvelocity(double ve)
 	if(abs(ve - posvel[lastcalculated])>1 && lastvel != ve)
 	{
 		lastvel = ve;
+		lastpos = position;
 
 		newset = 1;
 
@@ -158,7 +159,7 @@ void Stepper::setvelocity(double ve)
 
 		/*distance to accelerate and decelerate*/
 		double distance = 1000;
-		distance = sgn(ve)*abs(pow(ve,2)/max_accel) - sgn(v0)*pow(v0,2)/(2*max_accel);
+		distance = sign(ve)*abs(pow(ve,2)/max_accel) - sign(v0)*pow(v0,2)/(2*max_accel);
 
 		System::print("Distance:%f, ds:%f \t v0: %f \t ve: %f\n", distance, d_s, v0, ve );
 
@@ -251,9 +252,10 @@ void Stepper::setvelocity(double ve)
 
 void Stepper::setposition(double se, double vmax)
 {
-	if(abs(se - position)>10 && se != lastpos){
+	if((abs(se - position)>10 || (abs(posvel[lastcalculated])> 0.5))&& se != lastpos){
 
 		lastpos = se;
+		lastvel = 0;
 
 		newset = 1;
 
@@ -275,26 +277,51 @@ void Stepper::setposition(double se, double vmax)
 
 		System::print("calc Pos  s0: %f  se: %f\n", s0, se);
 
-		double s_accel = pow(vmax, 2)/max_accel;
+		//double s_accel = pow(vmax, 2)/max_accel;
+
+		double s_add = sign(v0)*pow(v0,2)/max_accel;
 
 		int32_t d_s = se - s0;
+
+		int32_t d_s2 = se - (s0 + (int32_t)s_add);
 		//d_s -= pow(v0,2)/(2*max_accel);
-		if(d_s > 0) d_s -= sgn(v0)*pow(v0,2)/(2*max_accel);
-		if(d_s < 0) d_s -= sgn(v0)*pow(v0,2)/(2*max_accel);
+//		if(d_s > 0) d_s -= sign(v0)*pow(v0,2)/(2*max_accel);
+//		if(d_s < 0) d_s -= sign(v0)*pow(v0,2)/(2*max_accel);
+
+		double t_base = abs(v0)/max_accel*1.4;
+
+		double multi = 2;
 
 		int64_t te;
 		double buffer = 0;
 		//TODO
 
-		if(abs(d_s)< s_accel){
-		/* distance only accaleration __/\__*/
-			buffer = sqrt(abs(d_s)/max_accel)*1.85;
-		}
-		else{
-		/* distance accaleration and "const" velocity __*/
-		/*										   __/	\__*/
-			buffer = vmax/max_accel*1.85 + (abs(d_s)-s_accel)/vmax*1.85;
-		}
+	    if(sign(d_s) == sign(d_s2)){
+	        double t = 2*(max_vel-abs(v0))/max_accel;
+	        double s = t*(v0 + sign(v0)*((max_vel-abs(v0))/2));
+	        if(abs(s)>abs(d_s2)){
+	            t=t*pow((s)/(d_s2),2);
+	        }
+	        else{
+	            t = t+ (abs(d_s2) - abs(s))/max_vel;
+	        }
+	        buffer = (t + t_base*multi);
+	    }
+	    else{
+	        buffer = sqrt(abs(d_s2)/max_accel)*multi + t_base;
+	    }
+
+	    //if(isnan(buffer)) buffer = 300+t_base;
+
+//		if(abs(d_s)< s_accel){
+//		/* distance only accaleration __/\__*/
+//			buffer = sqrt(abs(d_s)/max_accel)*1.85;
+//		}
+//		else{
+//		/* distance accaleration and "const" velocity __*/
+//		/*										   __/	\__*/
+//			buffer = vmax/max_accel*1.85 + (abs(d_s)-s_accel)/vmax*1.85;
+//		}
 		System::print("singend te: %f\n", buffer);
 		te = (uint32_t)abs(buffer);
 		if(te==0) te =3;
