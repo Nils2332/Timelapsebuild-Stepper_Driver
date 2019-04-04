@@ -168,15 +168,14 @@ void Stepper::setvelocity(double ve)
 
 		bool const_vel = 0;
 		if(ve == 0)const_vel = 1;
-		if(ve > 0 && d_s < pos_max)const_vel = 1;
-		if(ve < 0 && d_s > pos_min)const_vel = 1;
+		//if(ve > 0 && d_s < pos_max)const_vel = 1;
+		//if(ve < 0 && d_s > pos_min)const_vel = 1;
+		if(pos_min < d_s && d_s < pos_max) const_vel = 1;
 
 		if(const_vel)
 		{
-			//System::print("calc Vel\n");
-
-			uint32_t te;
-			te = t1;
+			/*Spine 1*/
+			uint32_t te = t1;
 
 			double se = s0 + d_s1;
 
@@ -209,8 +208,8 @@ void Stepper::setvelocity(double ve)
 
 			/*Constant Vel function*/
 			if(ve != 0){
-				t_start[spline_next1] = t_end[spline];
 
+				/*Spine 2*/
 				/*position to decelerate*/
 				if(ve>0){
 					s_end[spline_next1] = pos_max-abs(d_s2);
@@ -220,10 +219,9 @@ void Stepper::setvelocity(double ve)
 				}
 				/*time to decelerate*/
 				double diff = (s_end[spline] - s_end[spline_next1]);
+
+				t_start[spline_next1] = t_end[spline];
 				t_end[spline_next1] = t_start[spline_next1]+(uint32_t)abs(diff/ve);
-
-				//System::print("t_end vconst: %f \n" ,(double)t_end[spline_next1]);
-
 				v_end[spline_next1] = ve;
 
 				b0[spline_next1] = s_end[spline];
@@ -233,14 +231,10 @@ void Stepper::setvelocity(double ve)
 				b4[spline_next1] = 0;
 				b5[spline_next1] = 0;
 
-
-				t_start[spline_next2] = t_end[spline_next1];
-				t_end[spline_next2] = t_start[spline_next2] + t2;
-
 				System::print("2: t_start: %u t_end: %d s_0: %u s_e: %d\n", t_start[spline_next1], t_end[spline_next1], s_end[spline], s_end[spline_next1]);
 
-				v0=ve;
-				s0=s_end[spline_next1];
+
+				/*Spine 3*/
 
 				if(ve>0){
 					s_end[spline_next2] = pos_max;
@@ -248,11 +242,15 @@ void Stepper::setvelocity(double ve)
 				if(ve<0){
 					s_end[spline_next2] = pos_min;
 				}
-				ve=0;
+
+				t_start[spline_next2] = t_end[spline_next1];
+				t_end[spline_next2] = t_start[spline_next2] + t2;
 				v_end[spline_next2] = 0;
 
+				v0=ve;
+				s0=s_end[spline_next1];
+				ve=0;
 				se=s_end[spline_next2];
-
 				te = t2;
 
 			    c0 = s_end[spline_next1];
@@ -271,7 +269,6 @@ void Stepper::setvelocity(double ve)
 
 				System::print("3: t_start: %u t_end: %u s_0: %f s_e: %f\n", t_start[spline_next2], t_end[spline_next2], s0, se);
 
-
 				spline_enable[spline_next1] = 1;
 				spline_enable[spline_next2] = 1;
 			}
@@ -284,13 +281,6 @@ void Stepper::setvelocity(double ve)
 		else{	/*if distance is to short just move to border position*/
 			if(ve>0) setposition(pos_max, ve);
 			if(ve<0) setposition(pos_min, ve);
-			if(ve==0){
-				double buffer = pospoint[lastcalculated] + v0/max_accel;
-				if(buffer > pos_max)buffer = pos_max;
-				if(buffer < pos_min)buffer = pos_min;
-
-				setposition((int32_t) buffer, max_vel);
-			}
 		}
 	}
 
@@ -447,7 +437,6 @@ void Stepper::update()
 		int16_t buffer = (int)lastcalculated - actualpospoint;
 		if(buffer < 0) buffer +=buffersize;
 
-		//if(buffer < 8)
 		while(buffer < 8 && newset)
 		{
 			uint8_t next_spline = (actual_spline+1)%splines;
@@ -456,13 +445,6 @@ void Stepper::update()
 				running = 1;
 			}
 
-//			if(b1[actual_spline] && !b2[actual_spline] && !b3[actual_spline]
-//					&& !b4[actual_spline] && !b5[actual_spline] && t_end[actual_spline]-t < 4){
-//				if(v_end[actual_spline] > 0)
-//					setposition(pos_max, v_end[actual_spline]);
-//				else
-//					setposition(pos_min, v_end[actual_spline]);
-//			}
 			if(t >= t_end[actual_spline] && !spline_enable[next_spline]){
 				newset = 0;
 				System::print("Stop-calculating : t=%u\n", t);
