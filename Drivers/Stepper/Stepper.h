@@ -24,8 +24,6 @@ public:
 	int32_t pos_max;
 	int32_t pos_min;
 
-	bool in_vel = 0;
-	bool in_accel = 0;
 
 	uint32_t nextsteptime = 0;
 
@@ -33,11 +31,7 @@ public:
 	uint16_t time2 = 0;
 	uint16_t time3 = 0;
 
-	int32_t lastrefpos = 0;
-	uint32_t lastreftime = 0;
-	double v_last=0;
 
-	double v_soll=0;
 	double v_ist=0;
 
 	double max_vel;
@@ -49,11 +43,11 @@ public:
 	GPIO_TypeDef* GPIOx;
 	GPIO_TypeDef* GPIOy;
 
+
 	double lastvel = 0;
 	double lastpos = 0;
 
 
-	bool moving = 0;
 
 	int8_t actualbuffer = 0;
 
@@ -64,17 +58,14 @@ public:
 	int32_t pospoint[buffersize] = {0};
 	uint64_t timestamp[buffersize] = {0, 0};
 	double posvel[buffersize] = { 0 };
-	double posaccel[buffersize] = { 0 };
 	uint8_t actualpospoint = 1;
 	uint8_t lastcalculated = 1;
-	bool stopsign[buffersize] = { 0 };
 	bool newset = 0;
 
-	bool tostop = 0;
 
 	/*Spline Variables*/
 	uint8_t actual_spline = 0;
-	bool spline_enable[splines] = { 0, 0, 0};
+	bool spline_enable[splines] = { 0, 0, 0, 0, 0};
 	int32_t s_end[splines] = {0};
 	double v_end[splines] = {0};
 	uint32_t t_start[splines] = { 0 };
@@ -105,8 +96,8 @@ public:
 	void setvelocity(double ve);
 
 	void setposition(double se, double vmax);
-	void setpositiont(double se, uint32_t time);
-	void setposition(double se, double ve, uint32_t time);
+	void setpositionte(double se, uint32_t time);
+	void setpositionve(double se, double ve, uint32_t time);
 
 	void calculatepos(uint32_t time);
 

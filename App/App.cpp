@@ -25,7 +25,7 @@ TIM_HandleTypeDef htim1;
 
 
 Stepper M1(DIR1_Pin, STEP1_Pin, STEP1_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-130/0.01125, (int32_t)130/0.01125);
-Stepper M2(DIR2_Pin, STEP2_Pin, STEP2_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-93/0.01125, (int32_t)93/0.01125);
+Stepper M2(DIR2_Pin, STEP2_Pin, STEP2_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-92/0.01125, (int32_t)92/0.01125);
 Stepper M3(DIR3_Pin, STEP3_Pin, STEP3_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 50, 0.4, 0.0001, 0, (int32_t)0, 50000);
 
 
@@ -55,8 +55,6 @@ void App_Start()
 
 	HAL_TIM_Base_Start_IT(&htim1);
 
-    //HAL_Delay(1000);
-
     HAL_SPI_Init(&hspi2);
 
 
@@ -67,6 +65,8 @@ void App_Start()
     M1.toggleEnable();
     M2.toggleEnable();
     M3.toggleEnable();
+
+    //M3.position = 25000;
 
     HAL_Delay(200);
 
@@ -132,26 +132,28 @@ void workdata()
 
 	/*Set Velocity*/
 	if(mode == 1){
-
-		int8_t vel = rxdata[1];
-		System::print("Set Velocity %d\n", vel);
-		double vel1 = vel;
-		if(vel1!=0)vel1 = vel1/100;
-		if(motor == 0) M1.setvelocity(vel1*M1.max_vel);
-		if(motor == 1) M2.setvelocity(vel1*M2.max_vel);
-		if(motor == 2) M3.setvelocity(vel1*M3.max_vel);
+		if(M1.enabled){
+			int8_t vel = rxdata[1];
+			System::print("Set Velocity %d\n", vel);
+			double vel1 = vel;
+			if(vel1!=0)vel1 = vel1/100;
+			if(motor == 0) M1.setvelocity(vel1*M1.max_vel);
+			if(motor == 1) M2.setvelocity(vel1*M2.max_vel);
+			if(motor == 2) M3.setvelocity(vel1*M3.max_vel);
+		}
 	}
 
 	/*Set Position*/
 	if(mode == 2){
-
-		int32_t position = 0;
-		int8_t vel = rxdata[5];
-		position = rxdata[1]<<24 | rxdata[2]<<16 | rxdata[3]<<8 | rxdata[4];
-		System::print("Set Position %d\n", position);
-		if(motor == 0) M1.setposition(position, (double)vel/100*M1.max_vel);
-		if(motor == 1) M2.setposition(position, (double)vel/100*M2.max_vel);
-		if(motor == 2) M3.setposition(position, (double)vel/100*M3.max_vel);
+		if(M1.enabled){
+			int32_t position = 0;
+			int8_t vel = rxdata[5];
+			position = rxdata[1]<<24 | rxdata[2]<<16 | rxdata[3]<<8 | rxdata[4];
+			System::print("Set Position %d\n", position);
+			if(motor == 0) M1.setposition(position, (double)vel/100*M1.max_vel);
+			if(motor == 1) M2.setposition(position, (double)vel/100*M2.max_vel);
+			if(motor == 2) M3.setposition(position, (double)vel/100*M3.max_vel);
+		}
 	}
 
 	/*Set Curve Parameter*/
