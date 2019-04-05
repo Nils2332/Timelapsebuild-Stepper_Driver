@@ -28,6 +28,8 @@ Stepper M1(DIR1_Pin, STEP1_Pin, STEP1_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0
 Stepper M2(DIR2_Pin, STEP2_Pin, STEP2_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 40, 0.5, 0.0001, 0, (int32_t)-92/0.01125, (int32_t)92/0.01125);
 Stepper M3(DIR3_Pin, STEP3_Pin, STEP3_GPIO_Port, M_EN_Pin, M_EN_GPIO_Port, 50, 0.4, 0.0001, 0, (int32_t)0, 50000);
 
+int32_t posbuffer[3];
+uint32_t timebuffer[3];
 
 uint8_t worked = 0;
 
@@ -40,6 +42,8 @@ uint8_t txdata[10];
 uint8_t gotdata = 0;
 
 uint16_t I2C_counter = 0;
+
+//TODO Add posbuffer and timeout
 
 void Timer_IT1()
 {
@@ -66,7 +70,9 @@ void App_Start()
     M2.toggleEnable();
     M3.toggleEnable();
 
-    //M3.position = 25000;
+    M3.position = 25000;
+    M3.pospoint[M3.lastcalculated] = 25000;
+    M3.lastpos = 25000;
 
     HAL_Delay(200);
 
@@ -105,8 +111,10 @@ void App_Start()
 
     while(1){
 
-    	if(dataReady() && (!M1.running || M1.actualbuffer>4) && (!M2.running || M2.actualbuffer>4) &&
-    			(!M3.running || M3.actualbuffer>4)){
+    	if(dataReady() && (!M1.running || M1.actualbuffer>9) && (!M2.running || M2.actualbuffer>9) &&
+    			(!M3.running || M3.actualbuffer>9)){
+
+    		//System::print("Buffer: %d   %d    %d\n", M1.actualbuffer, M2.actualbuffer, M3.actualbuffer);
     		//System::print("data Incoming\n");
     		if(getandcheckdata()){
     			workdata();
@@ -134,7 +142,7 @@ void workdata()
 	if(mode == 1){
 		if(M1.enabled){
 			int8_t vel = rxdata[1];
-			System::print("Set Velocity %d\n", vel);
+//			System::print("Set Velocity %d\n", vel);
 			double vel1 = vel;
 			if(vel1!=0)vel1 = vel1/100;
 			if(motor == 0) M1.setvelocity(vel1*M1.max_vel);
@@ -146,13 +154,22 @@ void workdata()
 	/*Set Position*/
 	if(mode == 2){
 		if(M1.enabled){
+			//TODO
 			int32_t position = 0;
 			int8_t vel = rxdata[5];
 			position = rxdata[1]<<24 | rxdata[2]<<16 | rxdata[3]<<8 | rxdata[4];
-			System::print("Set Position %d\n", position);
-			if(motor == 0) M1.setposition(position, (double)vel/100*M1.max_vel);
-			if(motor == 1) M2.setposition(position, (double)vel/100*M2.max_vel);
-			if(motor == 2) M3.setposition(position, (double)vel/100*M3.max_vel);
+//			System::print("Set Position: %d Motor: %u\n", position, motor);
+			if(rxdata[6] == 0){
+				if(motor == 0) M1.setpositionvmax(position, (double)vel/100*M1.max_vel);
+				if(motor == 1) M2.setpositionvmax(position, (double)vel/100*M2.max_vel);
+				if(motor == 2) M3.setpositionvmax(position, (double)vel/100*M3.max_vel);
+			}
+			if(rxdata[6] == 1)
+			{
+				posbuffer[motor] = position;
+
+				if(motor == 2) setsyncronmove();
+			}
 		}
 	}
 
@@ -259,4 +276,35 @@ uint8_t getandcheckdata()
 	}
 
 	return dataOK;
+}
+
+
+void setsyncronmove()
+{
+	timebuffer[0] = M1.checktime(posbuffer[0]);
+	timebuffer[1] = M2.checktime(posbuffer[1]);
+	timebuffer[2] = M3.checktime(posbuffer[2]);
+
+//	System::print("t1: %u t2: %u t3: %u \n", timebuffer[0], timebuffer[1], timebuffer[2]);
+
+	uint8_t slowest;
+	if(timebuffer[0]>timebuffer[1])slowest = 0;
+	else slowest = 1;
+	if(timebuffer[slowest]<timebuffer[2])slowest = 2;
+
+	if(slowest == 0){
+		M1.setpositionvmax(posbuffer[0], M1.max_vel);
+		M2.setpositionte(posbuffer[1], timebuffer[slowest]);
+		M3.setpositionte(posbuffer[2], timebuffer[slowest]);
+	}
+	if(slowest == 1){
+		M1.setpositionte(posbuffer[0], timebuffer[slowest]);
+		M2.setpositionvmax(posbuffer[1], M2.max_vel);
+		M3.setpositionte(posbuffer[2], timebuffer[slowest]);
+	}
+	if(slowest == 2){
+		M1.setpositionte(posbuffer[0], timebuffer[slowest]);
+		M2.setpositionte(posbuffer[1], timebuffer[slowest]);
+		M3.setpositionvmax(posbuffer[2], M3.max_vel);
+	}
 }

@@ -10,7 +10,7 @@
 
 #include "gpio.h"
 
-const uint8_t buffersize = 10;
+const uint8_t buffersize = 15;
 const uint8_t splines = 5;
 
 class Stepper{
@@ -95,11 +95,15 @@ public:
 
 	void setvelocity(double ve);
 
+	void setpositionvmax(double se, double ve);
 	void setposition(double se, double vmax);
 	void setpositionte(double se, uint32_t time);
-	void setpositionve(double se, double ve, uint32_t time);
+	void setpositionve(double se, double ve);
+	void setpositionvete(double se, double ve, uint32_t time);
 
 	void calculatepos(uint32_t time);
+
+	uint32_t checktime(double pos);
 
 	void update();
 };

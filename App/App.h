@@ -17,6 +17,8 @@ void App_Start();
 
 void workdata();
 
+void setsyncronmove();
+
 uint8_t getandcheckdata();
 
 #ifdef __cplusplus
