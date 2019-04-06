@@ -460,23 +460,23 @@ void Stepper::setpositionve(double se, double ve)
 
 }
 
-uint32_t Stepper::checktime(double pos)
+uint32_t Stepper::checktime(double posstart, double posend)
 {
-	if(pos > pos_max)pos= pos_max;
-	if(pos < pos_min)pos= pos_min;
+	if(posend > pos_max)posend= pos_max;
+	if(posend < pos_min)posend= pos_min;
 
 	uint32_t time;
 
-	if(pos == pospoint[lastcalculated]) return 0;
+	if(posstart == posend) return 0;
 
-	double se = pos;
+	double se = posend;
 	double se2= se;
 	double se3= se;
 
 	double ve = 0;
 
-	if(se>pospoint[lastcalculated]) ve = max_vel;
-	if(se<pospoint[lastcalculated]) ve = -max_vel;
+	if(se>posstart) ve = max_vel;
+	if(se<posstart) ve = -max_vel;
 
 
 	double s0, v0, a0, ae;
@@ -484,7 +484,7 @@ uint32_t Stepper::checktime(double pos)
 
 	double d_s;
 
-	s0 = pospoint[lastcalculated];
+	s0 = posstart;
 	v0 = posvel[lastcalculated];
 	a0 = 0;
 	ae = 0;

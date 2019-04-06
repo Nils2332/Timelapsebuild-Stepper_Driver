@@ -50,7 +50,7 @@
 // Channel 0 is 422.4MHz for the 433MHz band, each channel increments the frequency by 100KHz, so channel 10 would be 423.4MHz
 // Channel 0 is 844.8MHz for the 868/915MHz band, each channel increments the frequency by 200KHz, so channel 10 would be 846.8MHz
 // Max channel is 511 (473.5MHz / 947.0MHz)
-#define NRF905_CHANNEL			120
+#define NRF905_CHANNEL			106
 
 // Frequency band
 // 868 and 915 are actually the same thing

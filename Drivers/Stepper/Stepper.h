@@ -48,7 +48,6 @@ public:
 	double lastpos = 0;
 
 
-
 	int8_t actualbuffer = 0;
 
 	int16_t steps = 0;
@@ -103,7 +102,7 @@ public:
 
 	void calculatepos(uint32_t time);
 
-	uint32_t checktime(double pos);
+	uint32_t checktime(double posstart, double posend);
 
 	void update();
 };

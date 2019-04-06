@@ -43,6 +43,9 @@ uint8_t gotdata = 0;
 
 uint16_t I2C_counter = 0;
 
+
+int32_t positions[3][11];
+
 //TODO Add posbuffer and timeout
 
 void Timer_IT1()
@@ -281,9 +284,9 @@ uint8_t getandcheckdata()
 
 void setsyncronmove()
 {
-	timebuffer[0] = M1.checktime(posbuffer[0]);
-	timebuffer[1] = M2.checktime(posbuffer[1]);
-	timebuffer[2] = M3.checktime(posbuffer[2]);
+	timebuffer[0] = M1.checktime(M1.pospoint[M1.lastcalculated],posbuffer[0]);
+	timebuffer[1] = M2.checktime(M2.pospoint[M2.lastcalculated],posbuffer[1]);
+	timebuffer[2] = M3.checktime(M3.pospoint[M3.lastcalculated],posbuffer[2]);
 
 //	System::print("t1: %u t2: %u t3: %u \n", timebuffer[0], timebuffer[1], timebuffer[2]);
 
