@@ -292,6 +292,10 @@ void setsyncronmove()
 	else slowest = 1;
 	if(timebuffer[slowest]<timebuffer[2])slowest = 2;
 
+	M1.update();
+	M2.update();
+	M3.update();
+
 	if(slowest == 0){
 		M1.setpositionvmax(posbuffer[0], M1.max_vel);
 		M2.setpositionte(posbuffer[1], timebuffer[slowest]);
