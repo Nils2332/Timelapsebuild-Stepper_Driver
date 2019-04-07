@@ -21,6 +21,15 @@ void setsyncronmove();
 
 uint8_t getandcheckdata();
 
+uint32_t calcmintime();
+
+void testrun();
+void cycle();
+void pause1();
+void start();
+void pause2();
+void stop();
+
 #ifdef __cplusplus
 }
 #endif

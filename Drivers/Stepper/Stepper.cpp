@@ -460,6 +460,73 @@ void Stepper::setpositionve(double se, double ve)
 
 }
 
+void setpositionvete(double se, double ve, uint32_t time)
+{
+
+}
+
+void Stepper::setspline(double s0, double se, double v0, double ve, uint32_t time_start, uint32_t time_end, uint8_t mode, uint8_t spline)
+{
+	if(se > pos_max)se= pos_max;
+	if(se < pos_min)se= pos_min;
+
+	lastpos = se;
+	lastvel = 0;
+
+	newset = 1;
+
+	//spline = (actual_spline+1)%splines;
+
+//	double s0;
+//	double v0;
+	double a0;
+//	double ve = 0;
+	double ae = 0;
+
+	double c0, c1, c2, c3, c4, c5;
+
+//	s0 = pospoint[lastcalculated];
+//	v0 = posvel[lastcalculated];
+	a0 = 0; //posaccel[lastcalculated];
+
+	if(s0 != se){
+
+		int64_t te = time_end - time_start;
+
+		if(mode == 0){
+			c0 = s0;
+			c1 = v0;
+			c2 = a0/2;
+			c3 = (ae-3*a0)/(2*te) - (4*ve+6*v0)/(pow(te,2)) + 10*(se-s0)/(pow(te,3));
+			c4 = (3*a0-2*ae)/(pow(te,2)) + (8*v0+7*ve)/(pow(te,3)) + 15*(s0-se)/(pow(te,4));
+			c5 = (ae-a0)/(2*pow(te,3)) - 3*(c1+ve)/(pow(te,4)) + 6*(se-c0)/(pow(te,5));
+		}
+		if(mode == 1){
+			c0 = s0;
+			c1 = (se-s0)/te;
+			c2 = 0;
+			c3 = 0;
+			c4 = 0;
+			c5 = 0;
+		}
+
+		s_end[spline] = se;
+		v_end[spline] = ve;
+
+		t_start[spline] = time_start;
+		t_end[spline] = time_end;
+
+		b0[spline] = c0;
+		b1[spline] = c1;
+		b2[spline] = c2;
+		b3[spline] = c3;
+		b4[spline] = c4;
+		b5[spline] = c5;
+
+		spline_enable[spline] = 1;
+	}
+}
+
 uint32_t Stepper::checktime(double posstart, double posend)
 {
 	if(posend > pos_max)posend= pos_max;

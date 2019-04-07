@@ -44,7 +44,23 @@ uint8_t gotdata = 0;
 uint16_t I2C_counter = 0;
 
 
-int32_t positions[3][11];
+uint8_t runmode = 0;
+bool setmode = 0;
+bool tobuffer[3] = { 0 };
+
+const uint8_t axis = 3;
+const uint8_t linepoints = 11;
+int32_t positions[axis][linepoints];
+uint8_t pos_number[axis][linepoints];
+uint8_t pos_mode[axis][linepoints];
+uint8_t points[axis] = { 0, 0 , 0 };
+double posvel[axis][linepoints] = { 0 };
+uint32_t minimaltime = 0;
+uint32_t sectiontime = 400;
+uint8_t lastspline[3] = { 0, 0, 0};
+uint32_t timeZero[3];
+uint8_t iterations[3];
+uint8_t basespline[3];
 
 //TODO Add posbuffer and timeout
 
@@ -124,6 +140,13 @@ void App_Start()
     		}
     	}
 
+		if(runmode == 1) testrun();
+		if(runmode == 2) cycle();
+		if(runmode == 3) pause1();
+		if(runmode == 4) start();
+		if(runmode == 5) pause2();
+		if(runmode == 6) stop();
+
     	M1.update();
     	M2.update();
     	M3.update();
@@ -157,11 +180,10 @@ void workdata()
 	/*Set Position*/
 	if(mode == 2){
 		if(M1.enabled){
-			//TODO
 			int32_t position = 0;
 			int8_t vel = rxdata[5];
 			position = rxdata[1]<<24 | rxdata[2]<<16 | rxdata[3]<<8 | rxdata[4];
-//			System::print("Set Position: %d Motor: %u\n", position, motor);
+			System::print("Set Position: %d Motor: %u\n", position, motor);
 			if(rxdata[6] == 0){
 				if(motor == 0) M1.setpositionvmax(position, (double)vel/100*M1.max_vel);
 				if(motor == 1) M2.setpositionvmax(position, (double)vel/100*M2.max_vel);
@@ -170,7 +192,6 @@ void workdata()
 			if(rxdata[6] == 1)
 			{
 				posbuffer[motor] = position;
-
 				if(motor == 2) setsyncronmove();
 			}
 		}
@@ -193,7 +214,24 @@ void workdata()
 
 	/*Set Curve Movement (START, STOP, PAUSE, CYCLE, TESTRUN)*/
 	if(mode == 6){
+		runmode = rxdata[1];
+		setmode = 1;
+	}
 
+	/*Receive Linepoints*/
+	if(mode == 7){
+		//TODO		(optional: count points and request again if point is missing)
+		uint8_t pointnumber = rxdata[1];
+		pos_number[motor][pointnumber] = rxdata[2];
+		pos_mode[motor][pointnumber] = rxdata[3];
+		positions[motor][pointnumber] = rxdata[4]<<24 | rxdata[5]<<16 | rxdata[6]<<8 | rxdata[7];
+		points[motor] = rxdata[8];
+
+		System::print("M: %u  Posnr: %u  Pos: %d  Mode: %u\n", motor, pos_number[motor][pointnumber], positions[motor][pointnumber], pos_mode[motor][pointnumber]);
+
+		if(motor == 2 && rxdata[1] == rxdata[8] -1){
+			calcmintime();
+		}
 	}
 
 	/*Toggle Motor Enable*/
@@ -314,4 +352,182 @@ void setsyncronmove()
 		M2.setpositionte(posbuffer[1], timebuffer[slowest]);
 		M3.setpositionvmax(posbuffer[2], M3.max_vel);
 	}
+}
+
+uint32_t calcmintime()
+{
+	uint32_t mintime = 0;
+	uint32_t calctime = 0;
+
+	uint8_t i,j;
+	for(i = 0; i<3; i++){
+		//uint8_t pointno = 0;
+		for(j = 0; j < 11; j++){
+			if(pos_mode[i][j] == 1)
+			{
+				posvel[i][j] = positions[i][j]-positions[i][j-1];
+				//System::print("posvel: %f \n", posvel[i][j+1]);
+				posvel[i][j] = posvel[i][j]/(pos_number[i][j]-pos_number[i][j-1]);
+				//System::print("posvel: %f \n", posvel[i][j+1]);
+				posvel[i][j-1] = posvel[i][j];
+				//System::print("posvel: %f \n", posvel[i][j]);
+			}
+			else{
+				posvel[i][j] = 0;
+			}
+		}
+		for(j = 0; j <points[i]-1; j++)
+		{
+			if(i == 0){
+				calctime = M1.checktime(positions[i][j],positions[i][j+1]);
+				calctime = calctime/(pos_number[i][j+1]-pos_number[i][j]);
+			}
+			if(i == 1){
+				calctime = M2.checktime(positions[i][j],positions[i][j+1]);
+				calctime = calctime/(pos_number[i][j+1]-pos_number[i][j]);
+			}
+			if(i == 2){
+				calctime = M3.checktime(positions[i][j],positions[i][j+1]);
+				calctime = calctime/(pos_number[i][j+1]-pos_number[i][j]);
+			}
+			if(calctime > mintime)mintime = calctime;
+		}
+	}
+
+	minimaltime = mintime;
+	System::print("Mintime: %u \n", mintime);
+
+	return mintime;
+}
+
+
+void testrun()
+{
+	if(setmode)
+	{
+		if(!M1.running && !M2.running && !M3.running){
+			/*Set position to Startposition*/
+			if(abs(M1.position-positions[0][0]) > 4  || abs(M2.position-positions[1][0]) > 4 || abs(M3.position-positions[2][0]) > 4){
+				M1.setpositionvmax(positions[0][0], M1.max_vel);
+				M2.setpositionvmax(positions[1][0], M2.max_vel);
+				M3.setpositionvmax(positions[2][0], M3.max_vel);
+			}
+			else{
+				/*Motor 1*/
+				uint8_t m = 0;
+				uint8_t n = 0;
+				lastspline[m] = M1.actual_spline;
+				timeZero[m] = M1.timestamp[M1.lastcalculated];
+				basespline[m] = M1.actual_spline;
+
+				M1.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+				//System::print("v0: %f, ve: %f\n", posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime);
+
+				n=1;
+				M1.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+				//System::print("v0: %f, ve: %f\n", posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime);
+
+				iterations[m] = 2;
+
+				/*Motor 2*/
+				m = 1;
+				n = 0;
+				lastspline[m] = M2.actual_spline;
+				timeZero[m] = M2.timestamp[M2.lastcalculated];
+				basespline[m] = M2.actual_spline;
+
+				M2.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+				n=1;
+				M2.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+				iterations[m] = 2;
+
+				/*Motor 3*/
+				m = 2;
+				n = 0;
+				lastspline[m] = M3.actual_spline;
+				timeZero[m] = M3.timestamp[M3.lastcalculated];
+				basespline[m] = M3.actual_spline;
+
+				M3.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+				n=1;
+				M3.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+						timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+						pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+				iterations[m] = 2;
+
+				setmode = 0;
+			}
+		}
+	}
+	if(lastspline[0] != M1.actual_spline && iterations[0] < points[0]){
+
+		uint8_t m = 0;
+		uint8_t n = iterations[0];
+
+		M1.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+				timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+				pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+		//System::print("v0: %f, ve: %f\n", posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime);
+
+		iterations[m]++;
+		lastspline[m] = M1.actual_spline;
+	}
+	if(lastspline[1] != M2.actual_spline && iterations[1] < points[1]){
+		uint8_t m = 1;
+		uint8_t n = iterations[m];
+
+		M2.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+				timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+				pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+		iterations[m]++;
+		lastspline[m] = M2.actual_spline;
+	}
+	if(lastspline[2] != M3.actual_spline && iterations[2] < points[2]){
+		uint8_t m = 2;
+		uint8_t n = iterations[m];
+
+		M3.setspline(positions[m][n], positions[m][n+1], posvel[m][n]/minimaltime, posvel[m][n+1]/minimaltime,
+				timeZero[m]+pos_number[m][n]*minimaltime, timeZero[m]+pos_number[m][n+1]*minimaltime,
+				pos_mode[m][n+1], (basespline[m]+n+1)%splines);
+
+		iterations[m]++;
+		lastspline[m] = M3.actual_spline;
+	}
+}
+
+void cycle()
+{
+
+}
+void pause1()
+{
+
+}
+void start()
+{
+
+}
+void pause2()
+{
+
+}
+void stop()
+{
+
 }

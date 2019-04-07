@@ -99,6 +99,7 @@ public:
 	void setpositionte(double se, uint32_t time);
 	void setpositionve(double se, double ve);
 	void setpositionvete(double se, double ve, uint32_t time);
+	void setspline(double s0, double se, double v0, double ve, uint32_t time_start, uint32_t time_end, uint8_t mode, uint8_t spline);
 
 	void calculatepos(uint32_t time);
 
