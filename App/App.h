@@ -25,10 +25,12 @@ uint32_t calcmintime();
 
 void testrun();
 void cycle();
-void pause1();
 void start();
-void pause2();
 void stop();
+
+void setspline(uint8_t Motor, int32_t posa, int32_t posb,
+		double vela, double velb, uint32_t timea, uint32_t timeb,
+		uint8_t mode, uint8_t spline);
 
 #ifdef __cplusplus
 }

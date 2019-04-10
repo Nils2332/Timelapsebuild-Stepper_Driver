@@ -158,6 +158,8 @@ void Stepper::setpositionvmax(double se, double ve)
 		uint8_t spline = (actual_spline+1)%splines;
 		uint8_t spline_next1 = (actual_spline+2)%splines;
 		uint8_t spline_next2 = (actual_spline+3)%splines;
+		uint8_t spline_next3 = (actual_spline+4)%splines;
+		spline_enable[spline_next3] = 0;
 
 		double s0, v0, a0, ae;
 		double c0, c1, c2, c3, c4, c5;
@@ -192,6 +194,8 @@ void Stepper::setpositionvmax(double se, double ve)
 
 		if(const_vel)
 		{
+
+
 			/*Spine 1*/
 			uint32_t te = t1;
 
@@ -220,7 +224,9 @@ void Stepper::setpositionvmax(double se, double ve)
 			t_start[spline] = timestamp[lastcalculated];
 			t_end[spline] = t_start[spline] + te;
 
-			if(ve==0) lastpos = s_end[spline];
+			if(ve == 0){
+				lastpos = s_end[spline];
+			}
 
 //			System::print("1: t_start: %u t_end: %u s_0: %f s_e: %d\n", t_start[spline], t_end[spline], s0, s_end[spline]);
 
